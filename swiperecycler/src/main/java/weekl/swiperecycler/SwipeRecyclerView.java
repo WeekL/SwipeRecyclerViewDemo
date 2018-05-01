@@ -11,7 +11,7 @@ import android.view.ViewGroup;
 public class SwipeRecyclerView extends RecyclerView {
 
     //记录屏幕触摸位置
-    private float startX, lastX, lastY;
+    private float startX, startY, lastX, lastY;
 
     //记录滑动位置
     private float currX;
@@ -20,8 +20,8 @@ public class SwipeRecyclerView extends RecyclerView {
 
     //contentLayout为需要滑动的内容容器
     //menuWidth为菜单容器宽度，即contentLayout的最大滑动距离
-    private ViewGroup contentLayout;
-    private int menuWidth;
+    private ViewGroup contentLayout = null;
+    private int menuWidth = 0;
 
     public SwipeRecyclerView(Context context) {
         super(context);
@@ -35,37 +35,55 @@ public class SwipeRecyclerView extends RecyclerView {
         super(context, attrs, defStyle);
     }
 
+    private float lastInterceptX, lastInterceptY;
+
     @Override
     public boolean onInterceptTouchEvent(MotionEvent e) {
+        boolean intercepted = super.onInterceptTouchEvent(e);
+        float x = e.getX();
+        float y = e.getY();
+        float dx = x - lastInterceptX;
+        float dy = y - lastInterceptY;
         switch (e.getAction()) {
             case MotionEvent.ACTION_DOWN:
                 onTouchEvent(e);
                 break;
             case MotionEvent.ACTION_MOVE:
-                onTouchEvent(e);
-                //此处直接拦截滑动事件，不传递给子View（不然滑动也会触发点击事件）
-                //如需实现子View的滑动交互，需要重写拦截逻辑
-                return true;
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    //拦截横向滑动的move事件
+                    onTouchEvent(e);
+                    intercepted = true;
+                }
+                break;
             case MotionEvent.ACTION_UP:
                 onTouchEvent(e);
                 break;
         }
-        return super.onInterceptTouchEvent(e);
+        lastInterceptX = x;
+        lastInterceptY = y;
+        return intercepted;
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent e) {
+        //计算偏移量
         float x = e.getX();
         float y = e.getY();
-        //计算偏移量
+        //每一帧的横向偏移量
         float dx = x - lastX;
-        float dy = y - lastY;
+        //从点击到最后操作（滑动或抬起）的总位移（两个点之间的距离）
+        float deltaX = lastX - startX;
+        float deltaY = lastY - startY;
+
         switch (e.getAction()) {
             case MotionEvent.ACTION_DOWN:
                 //获取item项的ViewHolder
                 ViewHolder holder = (ViewHolder) getChildViewHolder(findChildViewUnder(x, y));
                 //获取内容容器
                 ViewGroup contentView = holder.contentLayout;
+                if (contentView == null){
+                    break;
+                }
                 if (contentLayout == null || !contentLayout.equals(contentView)) {
                     //如果之前没有操作过item，或者当前点击item的和上一次操作的不是同一个
                     //重置所有坐标位置
@@ -82,56 +100,63 @@ public class SwipeRecyclerView extends RecyclerView {
                 }
                 //记录起始位置
                 startX = x;
+                startY = y;
                 break;
             case MotionEvent.ACTION_MOVE:
-                if (Math.abs(dx) > Math.abs(dy)) {
-                    //用偏移量判断是否是横向滑动
-                    //滑动位置随偏移量变化
-                    currX += dx;
-                    if (currX > 0 || -currX > menuWidth) {
-                        //边界控制，不让滑动位置出界
-                        currX = dx > 0 ? 0 : -menuWidth;
-                    }
-                    //执行滑动操作
-                    contentLayout.setTranslationX(currX);
+                if (contentLayout == null){
+                    break;
                 }
+                if (Math.abs(deltaX) < Math.abs(deltaY)) {
+                    //非横向滑动，跳出
+                    break;
+                }
+                //滑动位置随偏移量变化
+                currX += dx;
+                if (currX > 0 || -currX > menuWidth) {
+                    //边界控制，不让滑动位置出界
+                    currX = dx > 0 ? 0 : -menuWidth;
+                }
+                //执行滑动操作
+                contentLayout.setTranslationX(currX);
                 break;
             case MotionEvent.ACTION_UP:
-                //计算从按下到抬起的绝对偏移量
-                float delta = lastX - startX;
-                float target = 0;
-                if (delta == 0 || (delta < 0 && isOpen) || (delta > 0 && !isOpen)) {
-                    //点击事件直接跳出（子View处理）
+                if (contentLayout == null){
+                    break;
+                }
+                if (Math.abs(deltaX) < Math.abs(deltaY) || deltaX == 0 ||
+                        deltaX < 0 && isOpen || deltaX > 0 && !isOpen) {
+                    //非横向滑动（包括点击），跳出
                     //隐藏状态右滑和展开状态左滑直接跳出（无效操作）
                     break;
                 }
-                if (delta > 0 && delta >= menuWidth / 2 || delta < 0 && -delta < menuWidth / 2) {
-                    //如果右滑距离 > 菜单宽度的一半或者左滑距离 < 菜单宽度的一半
+                if (deltaX > 0 && deltaX >= menuWidth / 2 || deltaX < 0 && -deltaX < menuWidth / 2) {
+                    //如果右滑距离 > 菜单宽度的一半 || 左滑距离 < 菜单宽度的一半
                     //item复位隐藏菜单
-                    target = 0;
-                } else if (delta > 0 && delta < menuWidth / 2 || delta < 0 && -delta >= menuWidth / 2) {
-                    //如果右滑距离 < 菜单宽度的一半或者左滑距离 > 菜单宽度的一半
+                    currX = 0;
+                } else if (deltaX > 0 && deltaX < menuWidth / 2 || deltaX < 0 && -deltaX >= menuWidth / 2) {
+                    //如果右滑距离 < 菜单宽度的一半 || 左滑距离 > 菜单宽度的一半
                     //item展开菜单
-                    target = -menuWidth;
+                    currX = -menuWidth;
                 }
-                currX = target;
                 //执行滑动
                 contentLayout.setTranslationX(currX);
-                if (Math.abs(delta) > menuWidth / 2){
-                    //状态更新
+                //状态更新
+                if (Math.abs(deltaX) >= menuWidth / 2) {
                     isOpen = !isOpen;
                 }
                 break;
         }
         lastX = x;
         lastY = y;
-        //此处直接返回true（不会影响子View的事件传递）
-        return true;
+        return super.onTouchEvent(e);
     }
 
     /**
      * SwipeRecyclerView专用的ViewHolder
      * 必须实现绑定内容容器和菜单容器的方法，这里要求返回的是控件id
+     *
+     * 建议自定义与SwipeRecyclerView配套的Adapter抽象类
+     * 把ViewHolder封装在抽象类中，让使用者强制使用配套的ViewHolder
      */
     public static abstract class ViewHolder extends RecyclerView.ViewHolder {
         ViewGroup contentLayout;
@@ -139,8 +164,13 @@ public class SwipeRecyclerView extends RecyclerView {
 
         public ViewHolder(View itemView) {
             super(itemView);
-            contentLayout = itemView.findViewById(bindContentLayout());
-            menuLayout = itemView.findViewById(bindMenuLayout());
+            try{
+                contentLayout = itemView.findViewById(bindContentLayout());
+                menuLayout = itemView.findViewById(bindMenuLayout());
+            }catch (Exception e){
+                contentLayout = null;
+                menuLayout = null;
+            }
         }
 
         public abstract int bindContentLayout();

@@ -5,6 +5,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -30,10 +31,11 @@ public class MainActivity extends AppCompatActivity {
         }
         recyclerView = findViewById(R.id.recycler);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
-        recyclerView.setAdapter(new DemoAdapter(this,data));
+        recyclerView.setAdapter(new DemoAdapter(this, data));
     }
 
-    class DemoAdapter extends RecyclerView.Adapter<DemoAdapter.ViewHolder>{
+    class DemoAdapter extends RecyclerView.Adapter<DemoAdapter.ViewHolder> {
+        private static final String TAG = "DemoAdapter";
         private Context mContext;
         private List<String> mDatas;
 
@@ -51,6 +53,12 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void onBindViewHolder(ViewHolder holder, final int position) {
+            holder.itemView.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Log.d(TAG, "点击了item: " + position);
+                }
+            });
             holder.msg.setText(mDatas.get(position));
             holder.msg.setOnClickListener(new View.OnClickListener() {
                 @Override
@@ -71,7 +79,7 @@ public class MainActivity extends AppCompatActivity {
             return mDatas == null ? 0 : mDatas.size();
         }
 
-        class ViewHolder extends SwipeRecyclerView.ViewHolder{
+        class ViewHolder extends SwipeRecyclerView.ViewHolder {
             TextView msg;
             TextView top;
             TextView delete;

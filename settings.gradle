@@ -1,1 +1,1 @@
-include ':app', ':swiperecycler', ':swiperecycler'
+include ':app', ':swiperecycler'
