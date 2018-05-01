@@ -5,6 +5,7 @@ import android.support.annotation.Nullable;
 import android.support.v7.widget.RecyclerView;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
+import android.view.VelocityTracker;
 import android.view.View;
 import android.view.ViewGroup;
 
@@ -12,6 +13,9 @@ public class SwipeRecyclerView extends RecyclerView {
 
     //记录屏幕触摸位置
     private float startX, startY, lastX, lastY;
+
+    //速度追踪器
+    private VelocityTracker mVelocityTracker;
 
     //记录滑动位置
     private float currX;
@@ -24,15 +28,16 @@ public class SwipeRecyclerView extends RecyclerView {
     private int menuWidth = 0;
 
     public SwipeRecyclerView(Context context) {
-        super(context);
+        this(context,null);
     }
 
     public SwipeRecyclerView(Context context, @Nullable AttributeSet attrs) {
-        super(context, attrs);
+        this(context, attrs,0);
     }
 
     public SwipeRecyclerView(Context context, @Nullable AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
+        mVelocityTracker = VelocityTracker.obtain();
     }
 
     private float lastInterceptX, lastInterceptY;
@@ -66,6 +71,9 @@ public class SwipeRecyclerView extends RecyclerView {
 
     @Override
     public boolean onTouchEvent(MotionEvent e) {
+        //追踪本次触摸事件
+        mVelocityTracker.addMovement(e);
+
         //计算偏移量
         float x = e.getX();
         float y = e.getY();
@@ -129,12 +137,15 @@ public class SwipeRecyclerView extends RecyclerView {
                     //隐藏状态右滑和展开状态左滑直接跳出（无效操作）
                     break;
                 }
-                if (deltaX > 0 && deltaX >= menuWidth / 2 || deltaX < 0 && -deltaX < menuWidth / 2) {
-                    //如果右滑距离 > 菜单宽度的一半 || 左滑距离 < 菜单宽度的一半
+                //计算200ms内的滑动速度
+                mVelocityTracker.computeCurrentVelocity(200);
+                float xVelocity = mVelocityTracker.getXVelocity();
+                if (deltaX > 0 && xVelocity > 50 || deltaX > 0 && deltaX >= menuWidth / 2 || deltaX < 0 && -deltaX < menuWidth / 2) {
+                    //如果右滑速度 > 50 || 右滑距离 > 菜单宽度的一半 || 左滑距离 < 菜单宽度的一半
                     //item复位隐藏菜单
                     currX = 0;
-                } else if (deltaX > 0 && deltaX < menuWidth / 2 || deltaX < 0 && -deltaX >= menuWidth / 2) {
-                    //如果右滑距离 < 菜单宽度的一半 || 左滑距离 > 菜单宽度的一半
+                } else if (deltaX < 0 && xVelocity > 50 || deltaX > 0 && deltaX < menuWidth / 2 || deltaX < 0 && -deltaX >= menuWidth / 2) {
+                    //如果左滑速度 > 50 || 右滑距离 < 菜单宽度的一半 || 左滑距离 > 菜单宽度的一半
                     //item展开菜单
                     currX = -menuWidth;
                 }
