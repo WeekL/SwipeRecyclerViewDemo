@@ -24,9 +24,9 @@ public class SwipeRecyclerView extends RecyclerView {
     //记录菜单展开状态
     private boolean isOpen;
 
-    //contentLayout为需要滑动的内容容器
-    //menuWidth为菜单容器宽度，即contentLayout的最大滑动距离
-    private ViewGroup contentLayout = null;
+    //需要滑动的内容视图
+    private View contentLayout = null;
+    //菜单视图宽度，即内容视图的最大滑动距离
     private int menuWidth = 0;
 
     public SwipeRecyclerView(Context context) {
@@ -89,8 +89,8 @@ public class SwipeRecyclerView extends RecyclerView {
             case MotionEvent.ACTION_DOWN:
                 //获取item项的ViewHolder
                 ViewHolder holder = (ViewHolder) getChildViewHolder(findChildViewUnder(x, y));
-                //获取内容容器
-                ViewGroup contentView = holder.contentLayout;
+                //获取内容视图
+                View contentView = holder.contentLayout;
                 if (contentView == null) {
                     break;
                 }
@@ -170,14 +170,14 @@ public class SwipeRecyclerView extends RecyclerView {
 
     /**
      * SwipeRecyclerView专用的ViewHolder
-     * 必须实现绑定内容容器和菜单容器的方法，这里要求返回的是控件id
+     * 必须实现绑定内容视图和菜单视图的方法，这里要求返回的是控件id
      * <p>
      * 建议自定义与SwipeRecyclerView配套的Adapter抽象类
      * 把ViewHolder封装在抽象类中，让使用者强制使用配套的ViewHolder
      */
     public static abstract class ViewHolder extends RecyclerView.ViewHolder {
-        ViewGroup contentLayout;
-        ViewGroup menuLayout;
+        View contentLayout;
+        View menuLayout;
 
         public ViewHolder(View itemView) {
             super(itemView);
