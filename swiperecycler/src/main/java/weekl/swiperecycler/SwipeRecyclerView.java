@@ -4,12 +4,14 @@ import android.content.Context;
 import android.support.annotation.Nullable;
 import android.support.v7.widget.RecyclerView;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.VelocityTracker;
 import android.view.View;
 import android.view.ViewGroup;
 
 public class SwipeRecyclerView extends RecyclerView {
+    private static final String TAG = "SwipeRecyclerView";
 
     //记录屏幕触摸位置
     private float startX, startY, lastX, lastY;
@@ -28,11 +30,11 @@ public class SwipeRecyclerView extends RecyclerView {
     private int menuWidth = 0;
 
     public SwipeRecyclerView(Context context) {
-        this(context,null);
+        this(context, null);
     }
 
     public SwipeRecyclerView(Context context, @Nullable AttributeSet attrs) {
-        this(context, attrs,0);
+        this(context, attrs, 0);
     }
 
     public SwipeRecyclerView(Context context, @Nullable AttributeSet attrs, int defStyle) {
@@ -55,8 +57,8 @@ public class SwipeRecyclerView extends RecyclerView {
                 break;
             case MotionEvent.ACTION_MOVE:
                 if (Math.abs(dx) > Math.abs(dy)) {
-                    //拦截横向滑动的move事件
                     onTouchEvent(e);
+                    //拦截横向滑动的move事件
                     intercepted = true;
                 }
                 break;
@@ -89,7 +91,7 @@ public class SwipeRecyclerView extends RecyclerView {
                 ViewHolder holder = (ViewHolder) getChildViewHolder(findChildViewUnder(x, y));
                 //获取内容容器
                 ViewGroup contentView = holder.contentLayout;
-                if (contentView == null){
+                if (contentView == null) {
                     break;
                 }
                 if (contentLayout == null || !contentLayout.equals(contentView)) {
@@ -111,7 +113,7 @@ public class SwipeRecyclerView extends RecyclerView {
                 startY = y;
                 break;
             case MotionEvent.ACTION_MOVE:
-                if (contentLayout == null){
+                if (contentLayout == null) {
                     break;
                 }
                 if (Math.abs(deltaX) < Math.abs(deltaY)) {
@@ -128,33 +130,37 @@ public class SwipeRecyclerView extends RecyclerView {
                 contentLayout.setTranslationX(currX);
                 break;
             case MotionEvent.ACTION_UP:
-                if (contentLayout == null){
+                if (contentLayout == null) {
                     break;
                 }
                 if (Math.abs(deltaX) < Math.abs(deltaY) || deltaX == 0 ||
-                        deltaX < 0 && isOpen || deltaX > 0 && !isOpen) {
+                        (deltaX < 0 && isOpen) || (deltaX > 0 && !isOpen)) {
                     //非横向滑动（包括点击），跳出
                     //隐藏状态右滑和展开状态左滑直接跳出（无效操作）
                     break;
                 }
-                //计算200ms内的滑动速度
-                mVelocityTracker.computeCurrentVelocity(200);
-                float xVelocity = mVelocityTracker.getXVelocity();
-                if (deltaX > 0 && xVelocity > 50 || deltaX > 0 && deltaX >= menuWidth / 2 || deltaX < 0 && -deltaX < menuWidth / 2) {
-                    //如果右滑速度 > 50 || 右滑距离 > 菜单宽度的一半 || 左滑距离 < 菜单宽度的一半
+                //计算滑动速度
+                mVelocityTracker.computeCurrentVelocity(100);
+                float xVelocity = Math.abs(mVelocityTracker.getXVelocity());
+                Log.d(TAG, "滑动距离：" + deltaX + "，滑动速度:" + xVelocity);
+                if (xVelocity > 200){
+                    currX = deltaX > 0 ? 0 : -menuWidth;
+                }else if ((deltaX > 0 && deltaX >= menuWidth / 2) || (deltaX < 0 && -deltaX < menuWidth / 2)) {
+                    //右滑距离 > 菜单宽度的一半 || 左滑距离 < 菜单宽度的一半
                     //item复位隐藏菜单
                     currX = 0;
-                } else if (deltaX < 0 && xVelocity > 50 || deltaX > 0 && deltaX < menuWidth / 2 || deltaX < 0 && -deltaX >= menuWidth / 2) {
-                    //如果左滑速度 > 50 || 右滑距离 < 菜单宽度的一半 || 左滑距离 > 菜单宽度的一半
+                } else if ((deltaX > 0 && deltaX < menuWidth / 2) || (deltaX < 0 && -deltaX >= menuWidth / 2)) {
+                    //右滑距离 < 菜单宽度的一半 || 左滑距离 > 菜单宽度的一半
                     //item展开菜单
                     currX = -menuWidth;
                 }
                 //执行滑动
                 contentLayout.setTranslationX(currX);
                 //状态更新
-                if (Math.abs(deltaX) >= menuWidth / 2) {
+                if (Math.abs(deltaX) >= menuWidth / 2 || xVelocity > 200) {
                     isOpen = !isOpen;
                 }
+                mVelocityTracker.clear();
                 break;
         }
         lastX = x;
@@ -165,7 +171,7 @@ public class SwipeRecyclerView extends RecyclerView {
     /**
      * SwipeRecyclerView专用的ViewHolder
      * 必须实现绑定内容容器和菜单容器的方法，这里要求返回的是控件id
-     *
+     * <p>
      * 建议自定义与SwipeRecyclerView配套的Adapter抽象类
      * 把ViewHolder封装在抽象类中，让使用者强制使用配套的ViewHolder
      */
@@ -175,10 +181,10 @@ public class SwipeRecyclerView extends RecyclerView {
 
         public ViewHolder(View itemView) {
             super(itemView);
-            try{
+            try {
                 contentLayout = itemView.findViewById(bindContentLayout());
                 menuLayout = itemView.findViewById(bindMenuLayout());
-            }catch (Exception e){
+            } catch (Exception e) {
                 contentLayout = null;
                 menuLayout = null;
             }
